@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ElGamal Fayl Shifrlagich</title>
+<style>
+:root{--bg:#f4f6f9;--c:#fff;--t:#1b2430;--m:#6b7686;--b:#dde3ea;--a:#0d7a6b;--l:#0d7a6b;--r:#c0392b;--f:#f8fafc}
+@media(prefers-color-scheme:dark){:root{--bg:#0f141b;--c:#171e28;--t:#e8edf3;--m:#8d99a8;--b:#2a3441;--l:#3fcab4;--r:#ef6a5b;--f:#10161e}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:22px 16px 6px;text-align:center}h1{margin:0;font-size:22px}header p{margin:4px 0 0;color:var(--m);font-size:14px}
+main{max-width:760px;margin:0 auto;padding:12px 16px 40px}
+.tabs{display:flex;gap:6px;margin:14px 0;background:var(--c);border:1px solid var(--b);border-radius:12px;padding:5px}
+.tabs button{flex:1;border:0;background:none;color:var(--m);padding:10px 6px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--a);color:#fff}
+section{display:none;background:var(--c);border:1px solid var(--b);border-radius:14px;padding:20px}section.on{display:block}
+h2{margin:0 0 4px;font-size:18px}.hint{color:var(--m);font-size:13.5px;margin:0 0 16px}
+h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+.f{margin-bottom:10px}.fl{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:13px;font-weight:600}
+textarea,select{width:100%;background:var(--f);color:var(--t);border:1px solid var(--b);border-radius:8px;padding:8px 10px;font:12px/1.4 ui-monospace,Consolas,monospace;resize:vertical}
+select{font:inherit;width:auto}textarea:focus,select:focus{outline:2px solid var(--a);outline-offset:-1px}
+.btn{border:0;background:var(--a);color:#fff;font:inherit;font-weight:600;padding:11px 18px;border-radius:9px;cursor:pointer}
+.btn:disabled{opacity:.55;cursor:wait}.btn.w{width:100%;margin-top:14px}.btn.g{background:none;color:var(--l);border:1px solid var(--b);padding:7px 12px;font-size:13px}
+.lnk{background:none;border:0;color:var(--l);font:inherit;font-size:12.5px;cursor:pointer;padding:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.warn{background:rgba(192,57,43,.1);border:1px solid var(--r);color:var(--r);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px}
+.drop{border:2px dashed var(--b);border-radius:12px;padding:26px 12px;text-align:center;cursor:pointer;background:var(--f)}
+.drop:hover,.drop.over{border-color:var(--a)}.drop b{display:block}.drop small{color:var(--m)}
+.st{display:none;margin-top:14px;font-size:13.5px}.st.on{display:block}
+.bar{height:6px;background:var(--b);border-radius:3px;overflow:hidden;margin-top:6px}.bar i{display:block;height:100%;width:35%;background:var(--a);animation:mv 1s infinite ease-in-out}.bar.done i{animation:none;width:100%}.bar.p i{animation:none;width:var(--w);transition:width .15s}
+@keyframes mv{0%{margin-left:-35%}100%{margin-left:100%}}
+.res{display:none;margin-top:14px;padding:14px;border:1px solid var(--a);border-radius:10px;text-align:center}.res.on{display:block}.res p{margin:0 0 10px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 16px;border-radius:9px;font-size:14px;max-width:92vw;display:none;z-index:9}
+#toast.err{background:#b3321f}
+</style></head><body>
+<header><h1>🔐 ElGamal Fayl Shifrlagich</h1><p>Istalgan faylni shifrlang va faqat maxfiy kalit bilan oching. Hammasi brauzeringizda bajariladi.</p></header>
+<main>
+<div class="tabs">
+<button class="on" data-t="keys">1. Kalit yaratish</button><button data-t="enc">2. Shifrlash</button><button data-t="dec">3. Ochish</button></div>
+
+<section id="keys" class="on">
+<h2>Kalitlar juftligini yarating</h2>
+<p class="hint">Bir marta yaratiladi. Ochiq kalit bilan shifrlanadi, maxfiy kalit bilan ochiladi.</p>
+<div class="row"><select id="bits"><option value="2048" selected>2048-bit (tavsiya etiladi)</option><option value="1536">1536-bit</option><option value="1024">1024-bit (eskirgan, faqat sinov uchun)</option></select>
+<button class="btn" id="genBtn" onclick="gen()">Kalit yaratish</button></div>
+<h3>Ochiq kalit — boshqalarga berish mumkin</h3><div id="kpub"></div>
+<button class="btn g" onclick="saveKey('pub','kp','kg','ky')">⬇ public_key.json</button>
+<h3>Maxfiy kalit — hech kimga bermang</h3><div class="warn">Maxfiy kalitni yo‘qotsangiz, shifrlangan fayllarni qayta ochib bo‘lmaydi. Xavfsiz joyga saqlang.</div><div id="kpriv"></div>
+<button class="btn g" onclick="saveKey('private','kP','kx')">⬇ private_key.json</button>
+</section>
+
+<section id="enc">
+<h2>Faylni shifrlash</h2>
+<p class="hint">Video, PDF yoki boshqa faylni shifrlang. Ochiq kalit qismlarini alohida maydonlarga kiriting yoki kalit faylini yuklang.</p>
+<div id="epub"></div>
+<label class="lnk">📂 Kalit faylidan to‘ldirish (public_key.json)<input type="file" accept=".json,.txt" hidden onchange="loadKey(this,{p:'ep',g:'eg',y:'ey'})"></label>
+<h3>Fayl</h3>
+<div class="drop" id="dE"><b id="dEn">Faylni (video ham) shu yerga tashlang yoki bosib tanlang</b><small id="dEs">Istalgan fayl: video (MP4, MOV, AVI…), PDF, rasm, ZIP… Katta videolar ham bloklab shifrlanadi</small><input type="file" id="fE" hidden></div>
+<button class="btn w" id="eBtn" onclick="encrypt()">Shifrlash</button>
+<div class="st" id="eSt"><span></span><div class="bar"><i></i></div></div>
+<div class="res" id="eRes"><p id="eInfo"></p><button class="btn" id="eDl">⬇ Shifrlangan faylni yuklab olish</button></div>
+</section>
+
+<section id="dec">
+<h2>Faylni ochish</h2>
+<p class="hint">Maxfiy kalit qismlarini alohida kiriting yoki kalit faylini yuklang.</p>
+<div id="dpriv"></div>
+<label class="lnk">📂 Kalit faylidan to‘ldirish (private_key.json)<input type="file" accept=".json,.txt" hidden onchange="loadKey(this,{p:'dp',x:'dx'})"></label>
+<h3>Shifrlangan fayl (.elg)</h3>
+<div class="drop" id="dD"><b id="dDn">.elg faylni shu yerga tashlang yoki bosib tanlang</b><small id="dDs">Shu dastur bilan shifrlangan fayl</small><input type="file" id="fD" hidden accept=".elg"></div>
+<button class="btn w" id="dBtn" onclick="decrypt()">Faylni ochish</button>
+<div class="st" id="dSt"><span></span><div class="bar"><i></i></div></div>
+<div class="res" id="dRes"><p id="dInfo"></p><div class="row" style="justify-content:center"><button class="btn" id="dDl">⬇ Yuklab olish</button><button class="btn g" id="dPv" style="display:none">👁 Ko‘rish / ijro etish</button></div></div>
+</section>
+</main>
+<div id="toast"></div>
+
+<script>
+// RFC 2409 / RFC 3526 standart xavfsiz tub sonlar (p = 2q+1), generator g = 2
+const GROUPS={1024:BigInt('0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE65381FFFFFFFFFFFFFFFF'),1536:BigInt('0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA237327FFFFFFFFFFFFFFFF'),2048:BigInt('0xFFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF')};
+const $=id=>document.getElementById(id),tick=()=>new Promise(r=>setTimeout(r,30));
+const h2=n=>n.toString(16).padStart(2,'0');
+const b2i=a=>{let h='';for(const x of a)h+=h2(x);return BigInt('0x'+(h||'0'))};
+const i2b=(n,len)=>{const h=n.toString(16).padStart(len*2,'0'),a=new Uint8Array(len);for(let i=0;i<len;i++)a[i]=parseInt(h.substr(i*2,2),16);return a};
+const hexBytes=s=>Uint8Array.from(s.match(/../g),x=>parseInt(x,16));
+function modPow(b,e,m){let r=1n;b%=m;while(e>0n){if(e&1n)r=r*b%m;b=b*b%m;e>>=1n}return r}
+function randIn(max){ // tasodifiy son 2..max-2 (qo‘shimcha baytlar bilan, og‘ishsiz)
+  const a=crypto.getRandomValues(new Uint8Array(Math.ceil(max.toString(16).length/2)+8));return 2n+b2i(a)%(max-3n)}
+function hx(s,name){s=s.replace(/\s|0x/gi,'');if(!/^[0-9a-f]+$/i.test(s))throw Error(name+' maydoni bo‘sh yoki noto‘g‘ri (faqat 0-9, a-f)');return BigInt('0x'+s)}
+function bitsOf(p){for(const b in GROUPS)if(GROUPS[b]===p)return +b;throw Error('p qiymati noto‘g‘ri: u standart 1024/1536/2048-bit guruhlardan biri bo‘lishi kerak')}
+
+// ---- Interfeys yordamchilari ----
+function mk(id,list,ro){$(id).innerHTML=list.map(([i,l,rows])=>`<div class="f"><div class="fl"><label for="${i}">${l}</label><button class="lnk" onclick="cp('${i}')">Nusxa olish</button></div><textarea id="${i}" rows="${rows}" spellcheck="false" ${ro?'readonly':'placeholder="Shu yerga kiriting yoki joylashtiring"'}></textarea></div>`).join('')}
+mk('kpub',[['kp','p — modul',3],['kg','g — generator',1],['ky','y — ochiq qiymat',3]],1);
+mk('kpriv',[['kP','p — modul',3],['kx','x — maxfiy qiymat',3]],1);
+mk('epub',[['ep','p — modul',3],['eg','g — generator',1],['ey','y — ochiq qiymat',3]]);
+mk('dpriv',[['dp','p — modul',3],['dx','x — maxfiy qiymat',3]]);
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button,section').forEach(e=>e.classList.remove('on'));b.classList.add('on');$(b.dataset.t).classList.add('on')});
+let tt;function toast(m,err){const t=$('toast');t.textContent=m;t.className=err?'err':'';t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',err?6000:2500)}
+function cp(id){const v=$(id).value;if(!v)return toast('Nusxalash uchun ma‘lumot yo‘q',1);
+  (navigator.clipboard?navigator.clipboard.writeText(v):Promise.reject()).catch(()=>{$(id).select();document.execCommand('copy')}).then?.(()=>0);toast('Nusxalandi')}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function size(n){const u=['bayt','KB','MB','GB'];let i=0;while(n>=1024&&i<3){n/=1024;i++}return n.toFixed(i?1:0)+' '+u[i]}
+function busy(k,on,msg){$(k+'Btn').disabled=on;const s=$(k+'St');s.classList.add('on');s.querySelector('span').textContent=msg;{const b=s.querySelector('.bar');b.classList.remove('p');b.classList.toggle('done',!on)}if(on)$(k+'Res').classList.remove('on')}
+function drop(zone,input,nameEl,subEl,cb){const z=$(zone),i=$(input);z.onclick=()=>i.click();
+  i.onchange=()=>i.files[0]&&pick(i.files[0]);
+  ['dragenter','dragover'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.add('over')}));
+  ['dragleave','drop'].forEach(e=>z.addEventListener(e,ev=>{ev.preventDefault();z.classList.remove('over')}));
+  z.addEventListener('drop',ev=>ev.dataTransfer.files[0]&&pick(ev.dataTransfer.files[0]));
+  function pick(f){cb(f);$(nameEl).textContent=f.name;$(subEl).textContent=size(f.size)+' — tayyor'}}
+function loadKey(inp,map){const f=inp.files[0];if(!f)return;f.text().then(t=>{try{const o=JSON.parse(t);for(const k in map){if(o[k]==null)throw Error('Faylda "'+k+'" topilmadi');$(map[k]).value=String(o[k]).replace(/^0x/i,'')}toast('Kalit yuklandi')}catch(e){toast('Kalit faylini o‘qib bo‘lmadi: '+e.message,1)}});inp.value=''}
+function saveKey(type,...ids){const o={algorithm:'ElGamal'},n=type==='pub'?['p','g','y']:['p','x'];
+  if(!$(ids[0]).value)return toast('Avval kalit yarating',1);n.forEach((k,i)=>o[k]=$(ids[i]).value);download(new Blob([JSON.stringify(o,null,2)],{type:'application/json'}),type+'_key.json')}
+
+// ---- 1. Kalit yaratish ----
+async function gen(){const b=$('genBtn');b.disabled=true;b.textContent='Yaratilmoqda…';await tick();
+  try{const p=GROUPS[$('bits').value],x=randIn(p-1n),y=modPow(2n,x,p);
+    const P=p.toString(16);$('kp').value=$('kP').value=$('ep').value=$('dp').value=P;
+    $('kg').value=$('eg').value='2';$('ky').value=$('ey').value=y.toString(16);$('kx').value=$('dx').value=x.toString(16);
+    toast('Kalitlar yaratildi va keyingi bo‘limlarga avtomatik joylandi')}
+  catch(e){toast(e.message,1)}finally{b.disabled=false;b.textContent='Kalit yaratish'}}
+
+// ---- 2. Shifrlash: ElGamal(AES kaliti) + AES-256-GCM(fayl) ----
+let fileE,fileD,outE,outD,urlD;
+drop('dE','fE','dEn','dEs',f=>{fileE=f;if(f.size>2*1024**3)toast('Fayl 2 GB dan katta: brauzer xotirasi yetmasligi mumkin',1)});drop('dD','fD','dDn','dDs',f=>fileD=f);
+const CS=4<<20,tm=t0=>((performance.now()-t0)/1000).toFixed(1)+' soniya',yieldUI=()=>new Promise(r=>setTimeout(r));
+const civ=(pre,i)=>{const v=new Uint8Array(12);v.set(pre);new DataView(v.buffer).setUint32(8,i);return v};   // har blok uchun noyob IV
+const aad=(m,last)=>{const a=new Uint8Array(m.length+1);a.set(m);a[m.length]=last?1:0;return a};          // tartib va qirqilishdan himoya
+function prog(k,f,msg){const s=$(k+'St'),b=s.querySelector('.bar'),p=Math.round(f*100);b.classList.remove('done');b.classList.add('p');b.style.setProperty('--w',p+'%');s.querySelector('span').textContent=msg+' '+p+'%'}
+const MT={pdf:'application/pdf',mp4:'video/mp4',m4v:'video/mp4',webm:'video/webm',mov:'video/quicktime',ogv:'video/ogg',mp3:'audio/mpeg',wav:'audio/wav',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp'};
+
+// ---- 2. Shifrlash: ElGamal(AES kaliti) + AES-256-GCM (4 MB bloklarda, katta videolar uchun) ----
+async function encrypt(){
+  try{if(!crypto.subtle)throw Error('Brauzer xavfsiz rejimni talab qiladi (https:// yoki localhost)');
+    if(!fileE)throw Error('Avval shifrlanadigan faylni tanlang');
+    const p=hx($('ep').value,'p'),g=hx($('eg').value,'g'),y=hx($('ey').value,'y'),bits=bitsOf(p);
+    if(g!==2n)throw Error('g qiymati 2 bo‘lishi kerak');if(y<2n||y>p-2n)throw Error('y qiymati noto‘g‘ri');
+    busy('e',true,'Tayyorlanmoqda…');await tick();const t0=performance.now();
+    const K=crypto.getRandomValues(new Uint8Array(32)),pre=crypto.getRandomValues(new Uint8Array(8));
+    const m=(1n<<256n)|b2i(K),r=randIn(p-1n),c1=modPow(g,r,p),c2=m*modPow(y,r,p)%p;
+    const meta=new TextEncoder().encode(JSON.stringify({v:3,name:fileE.name,size:fileE.size,bits,cs:CS,c1:c1.toString(16),c2:c2.toString(16),iv:[...pre].map(h2).join('')}));
+    const ak=await crypto.subtle.importKey('raw',K,'AES-GCM',false,['encrypt']);
+    const hd=new Uint8Array(8);hd.set([69,76,71,51]);new DataView(hd.buffer).setUint32(4,meta.length);
+    const n=Math.max(1,Math.ceil(fileE.size/CS)),parts=[hd,meta];
+    for(let i=0;i<n;i++){const last=i===n-1,buf=await fileE.slice(i*CS,(i+1)*CS).arrayBuffer();
+      parts.push(await crypto.subtle.encrypt({name:'AES-GCM',iv:civ(pre,i),additionalData:aad(meta,last)},ak,buf));
+      prog('e',(i+1)/n,'Shifrlanmoqda…');await yieldUI()}
+    outE=new Blob(parts);const nm=fileE.name+'.elg';
+    busy('e',false,'Tayyor — '+tm(t0));
+    $('eInfo').textContent=nm+' ('+size(outE.size)+')';$('eRes').classList.add('on');$('eDl').onclick=()=>download(outE,nm);
+  }catch(e){$('eBtn').disabled=false;$('eSt').classList.remove('on');toast(e.message,1)}}
+
+// ---- 3. Ochish ----
+async function decrypt(){
+  try{if(!crypto.subtle)throw Error('Brauzer xavfsiz rejimni talab qiladi (https:// yoki localhost)');
+    if(!fileD)throw Error('Avval .elg faylni tanlang');
+    const p=hx($('dp').value,'p'),x=hx($('dx').value,'x'),bits=bitsOf(p);if(x<2n||x>p-2n)throw Error('x qiymati noto‘g‘ri');
+    busy('d',true,'Tayyorlanmoqda…');await tick();const t0=performance.now();
+    const rd=(a,b)=>fileD.slice(a,b).arrayBuffer(),hd=new Uint8Array(await rd(0,8)),ver=String.fromCharCode(...hd.subarray(0,4));
+    if(hd.length<8||(ver!=='ELG2'&&ver!=='ELG3'))throw Error('Bu fayl ushbu dastur bilan shifrlanmagan');
+    const ml=new DataView(hd.buffer).getUint32(4);if(8+ml>fileD.size)throw Error('Fayl shikastlangan');
+    const mb=new Uint8Array(await rd(8,8+ml)),meta=JSON.parse(new TextDecoder().decode(mb));
+    if(meta.bits!==bits)throw Error('Kalit uzunligi ('+bits+'-bit) fayl ('+meta.bits+'-bit) bilan mos kelmadi');
+    const wrong='Maxfiy kalit noto‘g‘ri yoki fayl shikastlangan',c1=BigInt('0x'+meta.c1),c2=BigInt('0x'+meta.c2),m=c2*modPow(c1,p-1n-x,p)%p;
+    if(m>>256n!==1n)throw Error(wrong);
+    const ak=await crypto.subtle.importKey('raw',i2b(m&((1n<<256n)-1n),32),'AES-GCM',false,['decrypt']),off=8+ml,parts=[];
+    if(ver==='ELG2'){try{parts.push(await crypto.subtle.decrypt({name:'AES-GCM',iv:hexBytes(meta.iv),additionalData:mb},ak,await rd(off,fileD.size)))}catch{throw Error(wrong)}}
+    else{const n=Math.max(1,Math.ceil(meta.size/meta.cs)),pre=hexBytes(meta.iv);
+      if(off+meta.size+16*n!==fileD.size)throw Error('Fayl shikastlangan yoki to‘liq yuklanmagan');
+      for(let i=0;i<n;i++){const last=i===n-1,len=(last?meta.size-i*meta.cs:meta.cs)+16,a=off+i*(meta.cs+16);
+        try{parts.push(await crypto.subtle.decrypt({name:'AES-GCM',iv:civ(pre,i),additionalData:aad(mb,last)},ak,await rd(a,a+len)))}catch{throw Error(i?'Fayl shikastlangan':wrong)}
+        prog('d',(i+1)/n,'Ochilmoqda…');await yieldUI()}}
+    const name=meta.name||'tiklangan_fayl',type=MT[name.split('.').pop().toLowerCase()];outD=new Blob(parts,{type:type||''});
+    busy('d',false,'Tayyor — '+tm(t0));
+    $('dInfo').textContent=name+' ('+size(outD.size)+')';$('dRes').classList.add('on');$('dDl').onclick=()=>download(outD,name);
+    const pv=$('dPv');pv.style.display=type?'':'none';
+    pv.onclick=()=>{if(urlD)URL.revokeObjectURL(urlD);urlD=URL.createObjectURL(outD);window.open(urlD,'_blank')};
+  }catch(e){$('dBtn').disabled=false;$('dSt').classList.remove('on');toast(e.message,1)}}
+</script></body></html>
